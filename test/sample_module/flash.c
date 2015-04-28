@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 
 #define DRIVER_NAME "flash"
+#define FLASH_INT_NUM 72
 
 /*
  * Information about our device
@@ -36,6 +37,19 @@
 extern struct flash_dev *flash;
 
 struct flash_dev flash_dev_info;
+
+static irqreturn_t flash_interrupt(int irq, void *dev_id)
+{
+	u32 next_task;
+
+	if (irq != FLASH_INT_NUM)
+		return IRQ_NONE;
+
+	flash_dev_info.next_task = ioread32(flash_dev_info.virtbase);
+	flash_dev_info.irq_pending = 1;
+
+	return IRQ_HANDLED;
+}
 
 static void change_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 {
@@ -127,8 +141,15 @@ static int __init flash_probe(struct platform_device *pdev)
 		goto out_release_mem_region;
 	}
 
+	/* irq */
+	ret = request_irq(FLASH_INT_NUM, flash_interrupt, 0, DRIVER_NAME, NULL);
+	if (ret < 0)
+		goto fail_request_irq
+
 	return 0;
 
+fail_request_irq:
+	iounmap(flash_dev_info.virtbase);
 out_release_mem_region:
 	release_mem_region(flash_dev_info.res.start, resource_size(&flash_dev_info.res));
 out_deregister:
@@ -139,6 +160,7 @@ out_deregister:
 /* Clean-up code: release resources */
 static int flash_remove(struct platform_device *pdev)
 {
+	free_irq(FLASH_INT_NUM, NULL);
 	iounmap(flash_dev_info.virtbase);
 	release_mem_region(flash_dev_info.res.start, resource_size(&flash_dev_info.res));
 	misc_deregister(&flash_misc_device);

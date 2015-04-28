@@ -16,6 +16,8 @@ struct flash_dev {
 	void __iomem *virtbase; /* Where registers can be accessed in memory */
 	void (*change_write_to_flash) (struct flash_dev *dev, flash_arg_t vla);
 	void (*sched_write_to_flash)  (struct flash_dev *dev, flash_arg_t vla);
+	int irq_pending;
+	uint32_t next_process;
 } dev;
 
 #endif
