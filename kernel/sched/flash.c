@@ -2,6 +2,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <asm/io.h>
+#include <linux/export.h>
 #include "flash_dev.h"
 
 struct flash_dev *flash = NULL;
@@ -41,7 +42,7 @@ static void
 enqueue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct flash_rq *flash_rq = &rq->flash;
-	struct flash_arg_t farg;
+	flash_arg_t farg;
 
 	flash_rq->nr_running++;
 
@@ -50,7 +51,7 @@ enqueue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 	farg.pri = p->prio;
 	farg.state = p->state;
 
-	change_write_to_flash(farg, flash);
+	flash->change_write_to_flash(flash, farg);
 
 	// message |= (FLASH_CHANGE_NEW);
 	// message |= (p->pid << 8);
@@ -76,7 +77,7 @@ static void
 dequeue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct flash_rq *flash_rq = &rq->flash;
-	struct flash_arg_t farg;
+	flash_arg_t farg;
 
 	flash_rq->nr_running--;
 
@@ -85,7 +86,7 @@ dequeue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 	farg.pri = p->prio;
 	farg.state = TASK_DEAD;
 	
-	change_write_to_flash(farg, flash);
+	flash->change_write_to_flash(flash, farg);
 	
 	// message |= (FLASH_CHANGE_NEW);
 	// message |= (p->pid << 8);
@@ -151,15 +152,16 @@ that needs to run.
 
 static struct task_struct *pick_next_task_flash(struct rq *rq)
 {
+	struct flash_rq *flash_rq = &rq->flash;
 	struct task_struct *p;
-	struct flash_arg_t farg;
+	flash_arg_t farg;
 	pid_t pid;
 
 	if (flash_rq->nr_running == 0)
 		return NULL;
 
 	// Get PID
-	pid = sched_write_to_flash(flash, farg);
+	pid = flash->sched_write_to_flash(flash, farg);
 	p = find_task_by_vpid(pid);
 	// Lookup task struct from PID
 	// p = container_of(entity, struct task_struct, flash);
@@ -180,7 +182,7 @@ static void put_prev_task_flash(struct rq *rq, struct task_struct *prev)
 {
 	// Inform the device that this task is no longer on the runqueue?
 	// struct flash_rq *flash_rq = &rq->flash;
-	// struct flash_arg_t farg;
+	// flash_arg_t farg;
 
 	// flash_rq->nr_running--;
 
@@ -189,7 +191,7 @@ static void put_prev_task_flash(struct rq *rq, struct task_struct *prev)
 	// farg.pri = p->prio;
 	// farg.state = TASK_DEAD;
 	
-	// change_write_to_flash(farg, flash);
+	// flash->change_write_to_flash(flash, farg);
 }
 
 /*
@@ -234,7 +236,7 @@ of tasks at a given moment
 */
 
 static int
-select_task_rq_flash(struct task_struct *p, int cpu, int sd_flag, int flags)
+select_task_rq_flash(struct task_struct *p, int sd_flag, int flags)
 {
 	int min_cpu = 0;
 	min_cpu = find_min_rq_cpu(p);
@@ -254,7 +256,7 @@ set_curr_task_flash(struct rq *rq)
 {
 	struct flash_rq *flash_rq = &rq->flash;
 	struct task_struct *p = rq->curr;
-	struct flash_arg_t farg;
+	flash_arg_t farg;
 
 	flash_rq->nr_running++;
 
@@ -263,7 +265,7 @@ set_curr_task_flash(struct rq *rq)
 	farg.pri = p->prio;
 	farg.state = p->state;
 
-	change_write_to_flash(farg, flash);
+	flash->change_write_to_flash(flash, farg);
 }
 
 /*
@@ -296,11 +298,11 @@ static void task_tick_flash(struct rq *rq, struct task_struct *curr, int queued)
 	// 	resched_task(curr);
 	// }
 	struct task_struct *p;
-	struct flash_arg_t farg;
+	flash_arg_t farg;
 	pid_t pid;
 
 	// Get PID
-	pid = sched_write_to_flash(flash, farg);
+	pid = flash->sched_write_to_flash(flash, farg);
 	p = find_task_by_vpid(pid);
 	if (p != curr)
 		resched_task(curr);
@@ -321,7 +323,7 @@ static void switched_to_flash(struct rq *rq, struct task_struct *p)
          * running task.
          */
         if (p->on_rq && rq->curr != p) {
-	        if (!dl_task(rq->curr) && !rt_task(rq->curr)) {
+	        if (!rt_task(rq->curr)) {
                     resched_task(rq->curr);
                 }
         }
