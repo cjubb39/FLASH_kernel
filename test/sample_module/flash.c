@@ -45,13 +45,14 @@ static void change_write_to_flash(flash_arg_t vla)
 	message |= ((u64) vla.pri   << 24);
 	message |= ((u64) vla.state << 32);
 
-	writeq(message, dev.virtbase + CHANGE_REQ);
+	iowrite32((u32) message,         dev.virtbase + CHANGE_REQ);
+	iowrite32((u32) (message >> 32), dev.virtbase + CHANGE_REQ);
 }
 
 static void sched_write_to_flash(flash_arg_t vla)
 {
-	u64 message = 0;
-	writeq(message, dev.virtbase + SCHED_REQ);
+	u32 message = 0;
+	iowrite32(message, dev.virtbase + SCHED_REQ);
 }
 
 /*
