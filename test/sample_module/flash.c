@@ -31,12 +31,13 @@
 /*
  * Information about our device
  */
-struct flash_dev {
-	struct resource res; /* Resource: our registers */
-	void __iomem *virtbase; /* Where registers can be accessed in memory */
-} dev;
+/* don't care */
+#include "../../kernel/sched/flash_dev.h"
+extern struct flash_dev *flash;
 
-static void change_write_to_flash(flash_arg_t vla)
+struct flash_dev flash_dev_info;
+
+static void change_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 {
 	u64 message = 0;
 
@@ -45,14 +46,14 @@ static void change_write_to_flash(flash_arg_t vla)
 	message |= ((u64) vla.pri   << 24);
 	message |= ((u64) vla.state << 32);
 
-	iowrite32((u32) message,         dev.virtbase + CHANGE_REQ);
-	iowrite32((u32) (message >> 32), dev.virtbase + CHANGE_REQ);
+	iowrite32((u32) message,         dev->virtbase + CHANGE_REQ);
+	iowrite32((u32) (message >> 32), dev->virtbase + CHANGE_REQ);
 }
 
-static void sched_write_to_flash(flash_arg_t vla)
+static void sched_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 {
 	u32 message = 0;
-	iowrite32(message, dev.virtbase + SCHED_REQ);
+	iowrite32(message, dev->virtbase + SCHED_REQ);
 }
 
 /*
@@ -67,11 +68,11 @@ static long flash_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&vla, (flash_arg_t *) arg,
 				   sizeof(flash_arg_t)))
 			return -EACCES;
-		change_write_to_flash(vla);
+		change_write_to_flash(&flash_dev_info, vla);
 		break;
 	case FLASH_SCHED:
 		/* just need to notify device that we want a process */
-		sched_write_to_flash(vla);
+		sched_write_to_flash(&flash_dev_info, vla);
 		break;
 
 	default:
@@ -106,22 +107,22 @@ static int __init flash_probe(struct platform_device *pdev)
 	ret = misc_register(&flash_misc_device);
 
 	/* Get the address of our registers from the device tree */
-	ret = of_address_to_resource(pdev->dev.of_node, 0, &dev.res);
+	ret = of_address_to_resource(pdev->dev.of_node, 0, &flash_dev_info.res);
 	if (ret) {
 		ret = -ENOENT;
 		goto out_deregister;
 	}
 
 	/* Make sure we can use these registers */
-	if (request_mem_region(dev.res.start, resource_size(&dev.res),
+	if (request_mem_region(flash_dev_info.res.start, resource_size(&flash_dev_info.res),
 			       DRIVER_NAME) == NULL) {
 		ret = -EBUSY;
 		goto out_deregister;
 	}
 
 	/* Arrange access to our registers */
-	dev.virtbase = of_iomap(pdev->dev.of_node, 0);
-	if (dev.virtbase == NULL) {
+	flash_dev_info.virtbase = of_iomap(pdev->dev.of_node, 0);
+	if (flash_dev_info.virtbase == NULL) {
 		ret = -ENOMEM;
 		goto out_release_mem_region;
 	}
@@ -129,7 +130,7 @@ static int __init flash_probe(struct platform_device *pdev)
 	return 0;
 
 out_release_mem_region:
-	release_mem_region(dev.res.start, resource_size(&dev.res));
+	release_mem_region(flash_dev_info.res.start, resource_size(&flash_dev_info.res));
 out_deregister:
 	misc_deregister(&flash_misc_device);
 	return ret;
@@ -138,8 +139,8 @@ out_deregister:
 /* Clean-up code: release resources */
 static int flash_remove(struct platform_device *pdev)
 {
-	iounmap(dev.virtbase);
-	release_mem_region(dev.res.start, resource_size(&dev.res));
+	iounmap(flash_dev_info.virtbase);
+	release_mem_region(flash_dev_info.res.start, resource_size(&flash_dev_info.res));
 	misc_deregister(&flash_misc_device);
 	return 0;
 }
@@ -166,6 +167,10 @@ static struct platform_driver flash_driver = {
 /* Called when the module is loaded: set things up */
 static int __init flash_init(void)
 {
+	flash_dev_info.change_write_to_flash = change_write_to_flash;
+	flash_dev_info.sched_write_to_flash = sched_write_to_flash;
+	flash = &flash_dev_info;
+
 	pr_info(DRIVER_NAME ": init\n");
 	return platform_driver_probe(&flash_driver, flash_probe);
 }
@@ -173,6 +178,8 @@ static int __init flash_init(void)
 /* Called when the module is unloaded: release resources */
 static void __exit flash_exit(void)
 {
+	flash = NULL;
+
 	platform_driver_unregister(&flash_driver);
 	pr_info(DRIVER_NAME ": exit\n");
 }
