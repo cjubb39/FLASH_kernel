@@ -324,6 +324,11 @@ struct rt_rq {
 #endif
 };
 
+struct flash_rq {
+	int nr_running;
+	struct list_head queue;
+}
+
 #ifdef CONFIG_SMP
 
 /*
@@ -385,6 +390,7 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+	struct flash_rq flash;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -874,6 +880,7 @@ extern const struct sched_class rt_sched_class;
 extern const struct sched_class fair_sched_class;
 extern const struct sched_class idle_sched_class;
 
+extern const struct sched_class flash_sched_class;
 
 #ifdef CONFIG_SMP
 
@@ -1180,6 +1187,7 @@ extern void print_rt_stats(struct seq_file *m, int cpu);
 
 extern void init_cfs_rq(struct cfs_rq *cfs_rq);
 extern void init_rt_rq(struct rt_rq *rt_rq, struct rq *rq);
+extern void init_flash_rq(struct flash_rq *flash_rq, struct rq *rq);
 
 extern void account_cfs_bandwidth_used(int enabled, int was_enabled);
 

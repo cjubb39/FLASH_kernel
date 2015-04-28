@@ -1188,6 +1188,10 @@ struct sched_rt_entity {
 #endif
 };
 
+struct sched_flash_entity {
+	struct list_head list;
+}
+
 struct rcu_node;
 
 enum perf_event_task_context {
@@ -1215,6 +1219,7 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
+	struct sched_flash_entity flash;
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
 #endif

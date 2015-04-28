@@ -1643,6 +1643,7 @@ void sched_fork(struct task_struct *p)
 	if (unlikely(p->sched_reset_on_fork)) {
 		if (task_has_rt_policy(p)) {
 			p->policy = SCHED_NORMAL;
+			/* TODO p->policy = SCHED_FLASH; */
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
@@ -1659,6 +1660,13 @@ void sched_fork(struct task_struct *p)
 	}
 
 	if (!rt_prio(p->prio))
+		p->sched_class = &fair_sched_class;
+
+	if (rt_prio(p->prio))
+		p->sched_class = &rt_sched_class;
+	else if (p->policy == SCHED_FLASH)
+		p->sched_class = &flash_sched_class;
+	else
 		p->sched_class = &fair_sched_class;
 
 	if (p->sched_class->task_fork)
@@ -3790,6 +3798,8 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	p->prio = rt_mutex_getprio(p);
 	if (rt_prio(p->prio))
 		p->sched_class = &rt_sched_class;
+	else if (p->sched_class == SCHED_FLASH)
+		p->sched_class = &flash_sched_class;
 	else
 		p->sched_class = &fair_sched_class;
 	set_load_weight(p);
@@ -3833,7 +3843,7 @@ recheck:
 
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
 				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+				policy != SCHED_IDLE && policy != SCHED_FLASH)
 			return -EINVAL;
 	}
 
@@ -4521,6 +4531,7 @@ SYSCALL_DEFINE1(sched_get_priority_max, int, policy)
 	case SCHED_NORMAL:
 	case SCHED_BATCH:
 	case SCHED_IDLE:
+	case SCHED_FLASH:
 		ret = 0;
 		break;
 	}
@@ -4546,6 +4557,7 @@ SYSCALL_DEFINE1(sched_get_priority_min, int, policy)
 	case SCHED_NORMAL:
 	case SCHED_BATCH:
 	case SCHED_IDLE:
+	case SCHED_FLASH:
 		ret = 0;
 	}
 	return ret;
@@ -6946,6 +6958,7 @@ void __init sched_init(void)
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);
 		init_rt_rq(&rq->rt, rq);
+		init_flash_rq(&rq->flash, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		root_task_group.shares = ROOT_TASK_GROUP_LOAD;
 		INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);
@@ -7036,7 +7049,10 @@ void __init sched_init(void)
 	/*
 	 * During early bootup we pretend to be a normal task:
 	 */
-	current->sched_class = &fair_sched_class;
+	if (current->policy == SCHED_FLASH)
+		current->sched_class = &flash_sched_class;
+	else
+		current->sched_class = &fair_sched_class;
 
 #ifdef CONFIG_SMP
 	zalloc_cpumask_var(&sched_domains_tmpmask, GFP_NOWAIT);
