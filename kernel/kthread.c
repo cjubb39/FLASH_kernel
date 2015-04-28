@@ -252,7 +252,7 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
 		if (create.result->policy == SCHED_FLASH)
 			sched_setscheduler_nocheck(create.result, SCHED_FLASH, &param);
 		else
-			sched_setscheduler_no_check(create.result, SCHED_NORMAL, &param);
+			sched_setscheduler_nocheck(create.result, SCHED_NORMAL, &param);
 
 		set_cpus_allowed_ptr(create.result, cpu_all_mask);
 	}
