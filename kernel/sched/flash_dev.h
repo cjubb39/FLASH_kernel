@@ -17,7 +17,7 @@ struct flash_dev {
 	void (*change_write_to_flash) (struct flash_dev *dev, flash_arg_t vla);
 	uint16_t (*sched_write_to_flash)  (struct flash_dev *dev, flash_arg_t vla);
 	int irq_pending;
-	uint32_t next_process;
+	uint32_t next_task;
 } dev;
 
 #endif

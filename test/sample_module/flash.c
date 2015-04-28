@@ -22,6 +22,7 @@
 #include <linux/of_address.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/interrupt.h>
 #include "flash.h"
 
 #include <linux/delay.h>
@@ -40,8 +41,6 @@ struct flash_dev flash_dev_info;
 
 static irqreturn_t flash_interrupt(int irq, void *dev_id)
 {
-	u32 next_task;
-
 	if (irq != FLASH_INT_NUM)
 		return IRQ_NONE;
 
@@ -70,6 +69,7 @@ static u16 sched_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 	u32 message = 0;
 	iowrite32(message, dev->virtbase + SCHED_REQ);
 	/* TODO wait until valid data comes in */
+	barrier();
 	next_process = (u16) ioread32(dev->virtbase);
 
 	return next_process;
@@ -149,7 +149,7 @@ static int __init flash_probe(struct platform_device *pdev)
 	/* irq */
 	ret = request_irq(FLASH_INT_NUM, flash_interrupt, 0, DRIVER_NAME, NULL);
 	if (ret < 0)
-		goto fail_request_irq
+		goto fail_request_irq;
 
 	return 0;
 
