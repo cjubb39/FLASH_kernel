@@ -64,10 +64,15 @@ static void change_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 	iowrite32((u32) (message >> 32), dev->virtbase + CHANGE_REQ);
 }
 
-static void sched_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
+static u16 sched_write_to_flash(struct flash_dev *dev, flash_arg_t vla)
 {
+	u16 next_process;
 	u32 message = 0;
 	iowrite32(message, dev->virtbase + SCHED_REQ);
+	/* TODO wait until valid data comes in */
+	next_process = (u16) ioread32(dev->virtbase);
+
+	return next_process;
 }
 
 /*
