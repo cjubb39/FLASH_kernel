@@ -1190,7 +1190,7 @@ struct sched_rt_entity {
 
 struct sched_flash_entity {
 	struct list_head list;
-}
+};
 
 struct rcu_node;
 
