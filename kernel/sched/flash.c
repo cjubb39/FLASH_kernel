@@ -1,6 +1,12 @@
 #include "sched.h"
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <asm/io.h>
+
+
+struct flash_dev *flash = NULL;
+EXPORT_SYMBOL(flash);
+
 
 /*
 
@@ -55,7 +61,9 @@ yield_task_flash(struct rq *rq)
 {
 
 	// rq->curr->flash.time_slice = 0;
-	// I believe we just do nothing
+	// We enqueue and then dequeue
+	iowrite32();
+	ioread32();
 }
 
 /*

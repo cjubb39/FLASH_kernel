@@ -327,7 +327,7 @@ struct rt_rq {
 struct flash_rq {
 	int nr_running;
 	struct list_head queue;
-}
+};
 
 #ifdef CONFIG_SMP
 
