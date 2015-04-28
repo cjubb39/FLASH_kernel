@@ -2,6 +2,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <asm/io.h>
+#include <linux/printk.h>
 #include <linux/export.h>
 #include "flash_dev.h"
 
@@ -53,6 +54,8 @@ enqueue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 
 	flash->change_write_to_flash(flash, farg);
 
+	printk("enqueue_task_flash: %u\n", p->pid);
+
 	// message |= (FLASH_CHANGE_NEW);
 	// message |= (p->pid << 8);
 	// message |= (p->prio << 24);
@@ -87,6 +90,8 @@ dequeue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 	farg.state = TASK_DEAD;
 	
 	flash->change_write_to_flash(flash, farg);
+
+	printk("dequeue_task_flash: %u\n", p->pid);
 	
 	// message |= (FLASH_CHANGE_NEW);
 	// message |= (p->pid << 8);
@@ -116,6 +121,7 @@ the next tick.
 static void
 yield_task_flash(struct rq *rq)
 {
+	printk("yield_task_flash\n");
 
 	// rq->curr->flash.time_slice = 0;
 	// We enqueue and then dequeue
@@ -133,6 +139,7 @@ static void
 check_preempt_curr_flash(struct rq *rq,
 		struct task_struct *p, int flags)
 {
+	printk("check_preempt_curr_flash\n");
 	// We know if we need to or not to preempt
 }
 
@@ -166,6 +173,7 @@ static struct task_struct *pick_next_task_flash(struct rq *rq)
 	// Lookup task struct from PID
 	// p = container_of(entity, struct task_struct, flash);
 	
+	printk("pick_next_task_flash\n");
 	return p;
 }
 
@@ -180,6 +188,7 @@ we do that in task_tick_flash() depending on the available timeslice.
 
 static void put_prev_task_flash(struct rq *rq, struct task_struct *prev)
 {
+	printk("put_prev_task_flash\n");
 	// Inform the device that this task is no longer on the runqueue?
 	// struct flash_rq *flash_rq = &rq->flash;
 	// flash_arg_t farg;
@@ -240,6 +249,7 @@ select_task_rq_flash(struct task_struct *p, int sd_flag, int flags)
 {
 	int min_cpu = 0;
 	min_cpu = find_min_rq_cpu(p);
+	printk("select_task_rq_flash\n");
 	return min_cpu;
 }
 
@@ -266,6 +276,7 @@ set_curr_task_flash(struct rq *rq)
 	farg.state = p->state;
 
 	flash->change_write_to_flash(flash, farg);
+	printk("set_curr_task_flash\n");
 }
 
 /*
@@ -306,12 +317,14 @@ static void task_tick_flash(struct rq *rq, struct task_struct *curr, int queued)
 	p = find_task_by_vpid(pid);
 	if (p != curr)
 		resched_task(curr);
+	printk("task_tick_flash\n");
 }
 
 static void
 prio_changed_flash(struct rq *rq, struct task_struct *p, int oldprio)
 {
 	// TODO: maybe never
+	printk("prio_changed_flash\n");
 }
 
 
@@ -327,6 +340,7 @@ static void switched_to_flash(struct rq *rq, struct task_struct *p)
                     resched_task(rq->curr);
                 }
         }
+	printk("switched_to_flash\n");
 }
 
 
