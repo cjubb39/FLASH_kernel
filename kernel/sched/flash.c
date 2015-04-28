@@ -2,11 +2,32 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <asm/io.h>
-
+#include "flash_dev.h"
 
 struct flash_dev *flash = NULL;
 EXPORT_SYMBOL(flash);
 
+#define FLASH_CHANGE_PRI       (1 << 0)
+#define FLASH_CHANGE_STATE     (1 << 1)
+#define __FLASH_CHANGE_NEW     (1 << 2)
+#define FLASH_CHANGE_NEW       (__FLASH_CHANGE_NEW | \
+		                            FLASH_CHANGE_PRI | \
+		                            FLASH_CHANGE_STATE)
+
+#define TASK_RUNNING		0
+#define TASK_INTERRUPTIBLE	1
+#define TASK_UNINTERRUPTIBLE	2
+#define __TASK_STOPPED		4
+#define __TASK_TRACED		8
+/* in tsk->exit_state */
+#define EXIT_ZOMBIE		16
+#define EXIT_DEAD		32
+/* in tsk->state again */
+#define TASK_DEAD		64
+#define TASK_WAKEKILL		128
+#define TASK_WAKING		256
+#define TASK_PARKED		512
+#define TASK_STATE_MAX		1024
 
 /*
 
@@ -20,10 +41,27 @@ static void
 enqueue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct flash_rq *flash_rq = &rq->flash;
+	struct flash_arg_t farg;
+
 	flash_rq->nr_running++;
 
+	farg.type = FLASH_CHANGE_NEW;
+	farg.pid = p->pid;
+	farg.pri = p->prio;
+	farg.state = p->state;
+
+	change_write_to_flash(farg, flash);
+
+	// message |= (FLASH_CHANGE_NEW);
+	// message |= (p->pid << 8);
+	// message |= (p->prio << 24);
+	// message |= (p->state << 32);
+
 	// TODO
-	iowrite32();
+	// if (flash) {
+	// 	iowrite32((u32) message, flash->virtbase + CHANGE_REQ);
+	// 	iowrite32((u32) (message << 32), flash->virtbase + CHANGE_REQ);
+	// }
 }
 
 /*
@@ -38,12 +76,30 @@ static void
 dequeue_task_flash(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct flash_rq *flash_rq = &rq->flash;
+	struct flash_arg_t farg;
 
-	if (flash_rq->nr_running)
-		flash_rq->nr_running--;
+	flash_rq->nr_running--;
 
-	// TODO
-	iowrite32();
+	farg.type = FLASH_CHANGE_STATE;
+	farg.pid = p->pid;
+	farg.pri = p->prio;
+	farg.state = TASK_DEAD;
+	
+	change_write_to_flash(farg, flash);
+	
+	// message |= (FLASH_CHANGE_NEW);
+	// message |= (p->pid << 8);
+	// message |= (p->prio << 24);
+	// message |= (p->state << 32);
+
+	// if (flash_rq->nr_running)
+	// 	flash_rq->nr_running--;
+
+	// // TODO
+	// if (flash) {
+	// 	iowrite32((u32) message, flash->virtbase + CHANGE_REQ);
+	// 	iowrite32((u32) (message << 32), flash->virtbase + CHANGE_REQ);
+	// }
 }
 
 /* 
@@ -62,8 +118,8 @@ yield_task_flash(struct rq *rq)
 
 	// rq->curr->flash.time_slice = 0;
 	// We enqueue and then dequeue
-	iowrite32();
-	ioread32();
+	// iowrite32();
+	// ioread32();
 }
 
 /*
@@ -76,8 +132,7 @@ static void
 check_preempt_curr_flash(struct rq *rq,
 		struct task_struct *p, int flags)
 {
-	// TODO: read the next task from FLASH
-	ioread32();
+	// We know if we need to or not to preempt
 }
 
 /*
@@ -97,13 +152,15 @@ that needs to run.
 static struct task_struct *pick_next_task_flash(struct rq *rq)
 {
 	struct task_struct *p;
+	struct flash_arg_t farg;
+	pid_t pid;
 
 	if (flash_rq->nr_running == 0)
 		return NULL;
 
 	// Get PID
-	ioread32();
-
+	pid = sched_write_to_flash(flash, farg);
+	p = find_task_by_vpid(pid);
 	// Lookup task struct from PID
 	// p = container_of(entity, struct task_struct, flash);
 	
@@ -121,8 +178,18 @@ we do that in task_tick_flash() depending on the available timeslice.
 
 static void put_prev_task_flash(struct rq *rq, struct task_struct *prev)
 {
-	// Inform the device that this task is no longer on the runqueue
-	iowrite32();
+	// Inform the device that this task is no longer on the runqueue?
+	// struct flash_rq *flash_rq = &rq->flash;
+	// struct flash_arg_t farg;
+
+	// flash_rq->nr_running--;
+
+	// farg.type = FLASH_CHANGE_STATE;
+	// farg.pid = p->pid;
+	// farg.pri = p->prio;
+	// farg.state = TASK_DEAD;
+	
+	// change_write_to_flash(farg, flash);
 }
 
 /*
@@ -185,9 +252,18 @@ the task's policy is already set so we just have to initialize the timeslice.
 static void
 set_curr_task_flash(struct rq *rq)
 {
-	// TODO: iowrite that a new task has come in
-	iowrite32();
+	struct flash_rq *flash_rq = &rq->flash;
 	struct task_struct *p = rq->curr;
+	struct flash_arg_t farg;
+
+	flash_rq->nr_running++;
+
+	farg.type = FLASH_CHANGE_NEW;
+	farg.pid = p->pid;
+	farg.pri = p->prio;
+	farg.state = p->state;
+
+	change_write_to_flash(farg, flash);
 }
 
 /*
@@ -219,6 +295,15 @@ static void task_tick_flash(struct rq *rq, struct task_struct *curr, int queued)
 	// 	list_move_tail(&entity->list, &rq->flash.queue);
 	// 	resched_task(curr);
 	// }
+	struct task_struct *p;
+	struct flash_arg_t farg;
+	pid_t pid;
+
+	// Get PID
+	pid = sched_write_to_flash(flash, farg);
+	p = find_task_by_vpid(pid);
+	if (p != curr)
+		resched_task(curr);
 }
 
 static void
