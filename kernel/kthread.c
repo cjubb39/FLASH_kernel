@@ -249,7 +249,7 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
 		 * root may have changed our (kthreadd's) priority or CPU mask.
 		 * The kernel thread should not inherit these properties.
 		 */
-		if (task->policy == SCHED_FLASH)
+		if (create.result->policy == SCHED_FLASH)
 			sched_setscheduler_nocheck(create.result, SCHED_FLASH, &param);
 		else
 			sched_setscheduler_no_check(create.result, SCHED_NORMAL, &param);
