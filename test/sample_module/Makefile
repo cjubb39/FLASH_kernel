@@ -1,7 +1,10 @@
 MODULE=flash
 
+KERN=3.9.0
+#-00161-ged01b8c-dirty
+
 obj-m += $(MODULE).o
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	make -C /mnt/lib/modules/$(KERN)/build M=$(PWD) modules
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C /mnt/lib/modules/$(KERN)/build M=$(PWD) clean

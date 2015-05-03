@@ -364,7 +364,8 @@ const struct sched_class flash_sched_class = {
 	.pick_next_task		= pick_next_task_flash,
 	.put_prev_task		= put_prev_task_flash,
 
-	.select_task_rq		= select_task_rq_flash,
+	// Not present without SMP
+	// .select_task_rq		= select_task_rq_flash,
 
 	.set_curr_task          = set_curr_task_flash,
 	.task_tick		= task_tick_flash,
